@@ -1,0 +1,9 @@
+{
+  "name": "pi-pinyx",
+  "version": "0.1.0",
+  "description": "PiNyx model gateway extension for Pi coding agent",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}

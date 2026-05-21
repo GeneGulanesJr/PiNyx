@@ -1,0 +1,7 @@
+/workspace/e749d8b4-78dc-49b1-ba17-79f32e6959a5/sessions/agent_3da6bf29-c302-444b-905c-17de6c91bce3/pinyx/target/debug/deps/yoke_derive-ce35e691c9340ae5.d: /home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/lib.rs /home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/lifetimes.rs /home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/visitor.rs
+
+/workspace/e749d8b4-78dc-49b1-ba17-79f32e6959a5/sessions/agent_3da6bf29-c302-444b-905c-17de6c91bce3/pinyx/target/debug/deps/libyoke_derive-ce35e691c9340ae5.so: /home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/lib.rs /home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/lifetimes.rs /home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/visitor.rs
+
+/home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/lib.rs:
+/home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/lifetimes.rs:
+/home/agent_3da6bf29-c302-444b-905c-17de6c91bce3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-derive-0.8.2/src/visitor.rs:
