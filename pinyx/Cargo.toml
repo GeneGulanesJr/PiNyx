@@ -1,0 +1,26 @@
+[package]
+name = "pinyx"
+version = "0.1.0"
+edition = "2021"
+description = "Model gateway for Pi coding agent"
+
+[[bin]]
+name = "pinyx"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["stream", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+clap = { version = "4", features = ["derive"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+futures = "0.3"
+async-trait = "0.1"
+tokio-stream = "0.1"
+dirs = "6"
+bytes = "1"

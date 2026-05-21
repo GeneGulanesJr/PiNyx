@@ -1,0 +1,1 @@
+futures::stream::Map<Pin<Box<dyn Stream<Item = Result<bytes::Bytes, reqwest::Error>> + std::marker::Send>>, {closure@src/server/mod.rs:151:63: 151:82}>
