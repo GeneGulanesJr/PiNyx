@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset='utf-8'><title>PiNyx Setup</title><style>body{font-family:sans-serif;max-width:960px;margin:20px auto}textarea,input{width:100%;padding:8px}button{padding:8px 12px;margin:8px 0}section{border:1px solid #ddd;padding:12px;margin-bottom:12px}</style></head><body>
+<h1>PiNyx Onboarding</h1>
+<section><h2>Router Roles</h2>
+<label>Thinking model</label><input id='thinking'/>
+<label>Coding model</label><input id='coding'/>
+<button onclick='saveSettings()'>Save roles</button>
+<div id='smsg'></div></section>
+<section><h2>Gateway Config</h2><p>Configure API keys, endpoints, models, and costs in JSON.</p>
+<textarea id='cfg' rows='26'></textarea><br/>
+<button onclick='saveConfig()'>Save config</button>
+<button onclick='syncPricing()'>Sync pricing from LiteLLM</button>
+<div id='cmsg'></div>
+</section>
+<script>
+async function load(){
+ const cfg=await fetch('/api/config').then(r=>r.json());
+ document.getElementById('cfg').value=JSON.stringify(cfg,null,2);
+ const st=await fetch('/api/settings').then(r=>r.json());
+ document.getElementById('thinking').value=st.thinking_model||'';
+ document.getElementById('coding').value=st.coding_model||'';
+}
+async function saveConfig(){
+ try{const parsed=JSON.parse(document.getElementById('cfg').value);
+ const r=await fetch('/api/config',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(parsed)});
+ document.getElementById('cmsg').textContent=r.ok?'Saved config':'Failed saving config';}catch(e){document.getElementById('cmsg').textContent='Invalid JSON';}}
+async function saveSettings(){
+ const body={thinking_model:document.getElementById('thinking').value,coding_model:document.getElementById('coding').value};
+ const r=await fetch('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+ document.getElementById('smsg').textContent=r.ok?'Saved roles':'Failed saving roles';
+}
+async function syncPricing(){ const r=await fetch('/api/pricing/sync',{method:'POST'}); const t=await r.json(); document.getElementById('cmsg').textContent=r.ok?`Synced pricing (${t.updated_models} models)`:('Sync failed: '+(t.error?.message||'unknown')); if(r.ok){await load();}}
+load();
+</script></body></html>

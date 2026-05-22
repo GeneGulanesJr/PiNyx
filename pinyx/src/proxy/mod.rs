@@ -30,7 +30,12 @@ impl std::fmt::Debug for AdapterResponse {
 #[async_trait]
 pub trait ProviderAdapter: Send + Sync {
     fn name(&self) -> &str;
-    async fn proxy(&self, model: &str, body: Value, api_key: &str) -> Result<AdapterResponse, String>;
+    async fn proxy(
+        &self,
+        model: &str,
+        body: Value,
+        api_key: &str,
+    ) -> Result<AdapterResponse, String>;
 }
 
 pub struct OpenAIAdapter {
@@ -53,8 +58,16 @@ impl ProviderAdapter for OpenAIAdapter {
         "openai"
     }
 
-    async fn proxy(&self, model: &str, body: Value, api_key: &str) -> Result<AdapterResponse, String> {
-        let url = format!("{}/chat/completions", self.config.base_url.trim_end_matches('/'));
+    async fn proxy(
+        &self,
+        model: &str,
+        body: Value,
+        api_key: &str,
+    ) -> Result<AdapterResponse, String> {
+        let url = format!(
+            "{}/chat/completions",
+            self.config.base_url.trim_end_matches('/')
+        );
 
         let mut body = body;
         if let Value::Object(ref mut map) = body {
@@ -80,9 +93,7 @@ impl ProviderAdapter for OpenAIAdapter {
             .unwrap_or(false);
 
         if is_stream {
-            let stream = response
-                .bytes_stream()
-                .map(|result| result);
+            let stream = response.bytes_stream().map(|result| result);
             Ok(AdapterResponse {
                 status,
                 stream: true,
@@ -123,7 +134,12 @@ impl ProviderAdapter for AnthropicAdapter {
         "anthropic"
     }
 
-    async fn proxy(&self, model: &str, body: Value, api_key: &str) -> Result<AdapterResponse, String> {
+    async fn proxy(
+        &self,
+        model: &str,
+        body: Value,
+        api_key: &str,
+    ) -> Result<AdapterResponse, String> {
         let url = format!("{}/v1/messages", self.config.base_url.trim_end_matches('/'));
 
         let mut body = body;
@@ -199,7 +215,12 @@ impl ProviderAdapter for GoogleAdapter {
         "google"
     }
 
-    async fn proxy(&self, model: &str, body: Value, api_key: &str) -> Result<AdapterResponse, String> {
+    async fn proxy(
+        &self,
+        model: &str,
+        body: Value,
+        api_key: &str,
+    ) -> Result<AdapterResponse, String> {
         let url = format!(
             "{}/models/{}:streamGenerateContent?alt=sse&key={}",
             self.config.base_url.trim_end_matches('/'),
@@ -239,7 +260,10 @@ pub fn create_adapter(config: &ProviderConfig) -> Box<dyn ProviderAdapter> {
         "openai-completions" => Box::new(OpenAIAdapter::new(config.clone())),
         "google-generative-ai" => Box::new(GoogleAdapter::new(config.clone())),
         other => {
-            info!(api = other, "using openai-completions adapter for unknown api");
+            info!(
+                api = other,
+                "using openai-completions adapter for unknown api"
+            );
             Box::new(OpenAIAdapter::new(config.clone()))
         }
     }

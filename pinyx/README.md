@@ -1,6 +1,6 @@
 # PiNyx
 
-Model gateway for [Pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent). Routes all LLM requests through a local proxy that logs usage, classifies intent, and optimizes model selection.
+Standalone model gateway that routes LLM requests through a local proxy, logs usage, and can optionally integrate with Pi via extension.
 
 ## Quick Start
 
@@ -32,17 +32,14 @@ Edit `~/.pinyx/pinyx.json` and set your API keys. Use `$ENV_VAR_NAME` to referen
         {
           "id": "claude-sonnet-4-20250514",
           "name": "Claude Sonnet 4",
-          "reasoning": true,
-          "input": ["text", "image"],
-          "context_window": 200000,
-          "max_tokens": 16384,
-          "cost": { "input": 3.0, "output": 15.0, "cache_read": 0.3, "cache_write": 3.75 }
+          "reasoning": true
         }
       ]
     }
   }
 }
 ```
+Minimal model config only needs `id` (plus provider settings). Fields like `name`, `input`, `reasoning`, `contextWindow`, `maxTokens`, and `cost` are optional metadata for `/v1/models` output and do not mutate the incoming request payload.
 
 ### 3. Start PiNyx
 
@@ -50,7 +47,15 @@ Edit `~/.pinyx/pinyx.json` and set your API keys. Use `$ENV_VAR_NAME` to referen
 ./target/release/pinyx
 ```
 
-### 4. Install the Pi extension
+### 4. Open onboarding UI (standalone)
+
+```
+http://127.0.0.1:7331/
+```
+
+Use the web UI to configure providers (API key, base URL, model list, cost), choose default thinking/coding models, and optionally sync pricing/context from LiteLLM by model-id match.
+
+### 5. Optional: Install the Pi extension
 
 ```bash
 # Copy or symlink the extension
@@ -63,7 +68,7 @@ Or install as a Pi package (from this repo):
 pi install git:github.com/your-org/pinyx
 ```
 
-### 5. Connect from Pi
+### 6. Optional: Connect from Pi
 
 ```
 pi
@@ -91,6 +96,10 @@ pinyx --verbose                # Debug logging
 | `/v1/chat/completions` | POST | OpenAI-compatible proxy (streaming SSE) |
 | `/anthropic/v1/messages` | POST | Anthropic-compatible proxy (streaming SSE) |
 | `/v1/models` | GET | Model registry (OpenAI-compatible format) |
+| `/api/config` | GET/PUT | Read or save gateway config JSON |
+| `/api/settings` | GET/PUT | Read or save thinking/coding model preferences |
+| `/api/pricing/sync` | POST | Pull model pricing/context from LiteLLM JSON by model id match |
+| `/` | GET | Web onboarding/configuration UI |
 | `/health` | GET | Gateway health + provider status |
 
 ## Model ID Format
@@ -108,7 +117,7 @@ When sending requests, use the full `provider/model-id` as the `model` field.
 ## How It Works
 
 ```
-Pi → /login "PiNyx (local)" → pinyx extension registers provider
+Client (Pi or any OpenAI-compatible caller) → PiNyx standalone gateway
 Pi → prompt → model request → http://localhost:7331 → PiNyx
                                                     → routes to real provider
                                                     → logs request
