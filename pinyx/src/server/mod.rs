@@ -35,31 +35,24 @@ pub struct AppState {
     pub config: Arc<Mutex<AppConfig>>,
     pub config_path: PathBuf,
     pub adapters: HashMap<String, Box<dyn ProviderAdapter>>,
-    pub api_keys: HashMap<String, String>,
     pub logger: RequestLogger,
 }
 
 impl AppState {
     pub fn new(config: AppConfig, config_path: PathBuf) -> Self {
         let mut adapters = HashMap::new();
-        let mut api_keys = HashMap::new();
-
         for (name, provider_config) in &config.providers {
             let adapter = create_adapter(provider_config);
             adapters.insert(name.clone(), adapter);
 
-            match config.resolve_api_key(&provider_config.api_key) {
-                Some(key) => {
-                    info!(provider = name, "resolved API key");
-                    api_keys.insert(name.clone(), key);
-                }
-                None => {
-                    warn!(
-                        provider = name,
-                        key_ref = &provider_config.api_key,
-                        "could not resolve API key"
-                    );
-                }
+            if config.resolve_api_key(&provider_config.api_key).is_some() {
+                info!(provider = name, "resolved API key");
+            } else {
+                warn!(
+                    provider = name,
+                    key_ref = &provider_config.api_key,
+                    "could not resolve API key"
+                );
             }
         }
 
@@ -69,7 +62,6 @@ impl AppState {
             config: Arc::new(Mutex::new(config)),
             config_path,
             adapters,
-            api_keys,
             logger,
         }
     }
@@ -131,14 +123,28 @@ async fn do_proxy(
     request_id: &str,
     start: std::time::Instant,
 ) -> Response {
-    let api_key = match state.api_keys.get(provider_name) {
-        Some(key) => key.clone(),
-        None => {
-            return build_error_response(
-                StatusCode::UNAUTHORIZED,
-                &format!("No API key for provider: {}", provider_name),
-                "authentication_error",
-            );
+    let api_key = {
+        let config = state.config.lock().await;
+        let provider = match config.providers.get(provider_name) {
+            Some(p) => p,
+            None => {
+                return build_error_response(
+                    StatusCode::BAD_REQUEST,
+                    &format!("Unknown provider: {}", provider_name),
+                    "invalid_request_error",
+                );
+            }
+        };
+
+        match config.resolve_api_key(&provider.api_key) {
+            Some(key) => key,
+            None => {
+                return build_error_response(
+                    StatusCode::UNAUTHORIZED,
+                    &format!("No API key for provider: {}", provider_name),
+                    "authentication_error",
+                );
+            }
         }
     };
 
@@ -338,7 +344,11 @@ pub async fn health(State(state): State<Arc<AppState>>) -> axum::Json<Value> {
     let mut providers = serde_json::Map::new();
     let config = state.config.lock().await;
     for (name, _) in &config.providers {
-        let has_key = state.api_keys.contains_key(name);
+        let has_key = config
+            .providers
+            .get(name)
+            .and_then(|p| config.resolve_api_key(&p.api_key))
+            .is_some();
         providers.insert(name.clone(), json!({"status": if has_key { "configured" } else { "missing_key" },"api_key": has_key,}));
     }
     axum::Json(
