@@ -40,8 +40,7 @@ async fn main() {
     let filter_level = if args.verbose { "debug" } else { "info" };
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(filter_level)),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(filter_level)),
         )
         .json()
         .with_target(false)
@@ -72,7 +71,15 @@ async fn main() {
     if args.check {
         info!("Config is valid");
         println!("Config is valid: {}", config_path.display());
-        println!("Providers: {}", config.providers.keys().cloned().collect::<Vec<_>>().join(", "));
+        println!(
+            "Providers: {}",
+            config
+                .providers
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         return;
     }
 
@@ -89,20 +96,29 @@ async fn main() {
         "starting PiNyx gateway"
     );
 
-    let state = Arc::new(AppState::new(config));
-
-    let addr = format!(
-        "{}:{}",
-        state.config.gateway.host, state.config.gateway.port
-    );
+    let addr = format!("{}:{}", config.gateway.host, config.gateway.port);
     let display_addr = addr.clone();
-    let display_providers: Vec<String> = state.config.providers.keys().cloned().collect();
+    let display_providers: Vec<String> = config.providers.keys().cloned().collect();
+
+    let state = Arc::new(AppState::new(config, config_path.clone()));
 
     let app = Router::new()
-        .route("/v1/chat/completions", post(server::openai_chat_completions))
+        .route(
+            "/v1/chat/completions",
+            post(server::openai_chat_completions),
+        )
         .route("/anthropic/v1/messages", post(server::anthropic_messages))
         .route("/v1/models", get(server::list_models))
         .route("/health", get(server::health))
+        .route("/", get(server::web_ui))
+        .route(
+            "/api/config",
+            get(server::get_config).put(server::put_config),
+        )
+        .route(
+            "/api/settings",
+            get(server::get_settings).put(server::put_settings),
+        )
         .with_state(state);
 
     let listener = match tokio::net::TcpListener::bind(&addr).await {
@@ -120,6 +136,7 @@ async fn main() {
     println!("Providers: {}", display_providers.join(", "));
     println!("Health: http://{}/health", display_addr);
     println!("Models: http://{}/v1/models", display_addr);
+    println!("Onboarding UI: http://{}/", display_addr);
 
     axum::serve(listener, app).await.unwrap();
 }
