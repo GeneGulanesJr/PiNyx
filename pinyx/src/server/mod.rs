@@ -31,29 +31,20 @@ struct LiteLlmPricingEntry {
 
 const LITELLM_PRICING_URL: &str = "https://raw.githubusercontent.com/BerriAI/litellm/litellm_internal_staging/model_prices_and_context_window.json";
 
-fn normalize_model_key(value: &str) -> String {
-    value.trim().to_ascii_lowercase().replace("_", "-")
-}
-
-fn rebuild_adapters(config: &AppConfig) -> HashMap<String, Box<dyn ProviderAdapter>> {
-    let mut adapters = HashMap::new();
-    for (name, provider_config) in &config.providers {
-        adapters.insert(name.clone(), create_adapter(provider_config));
-    }
-    adapters
-}
-
 pub struct AppState {
     pub config: Arc<Mutex<AppConfig>>,
     pub config_path: PathBuf,
-    pub adapters: Arc<Mutex<HashMap<String, Box<dyn ProviderAdapter>>>>,
+    pub adapters: HashMap<String, Box<dyn ProviderAdapter>>,
     pub logger: RequestLogger,
 }
 
 impl AppState {
     pub fn new(config: AppConfig, config_path: PathBuf) -> Self {
-        let adapters = rebuild_adapters(&config);
+        let mut adapters = HashMap::new();
         for (name, provider_config) in &config.providers {
+            let adapter = create_adapter(provider_config);
+            adapters.insert(name.clone(), adapter);
+
             if config.resolve_api_key(&provider_config.api_key).is_some() {
                 info!(provider = name, "resolved API key");
             } else {
@@ -70,7 +61,7 @@ impl AppState {
         Self {
             config: Arc::new(Mutex::new(config)),
             config_path,
-            adapters: Arc::new(Mutex::new(adapters)),
+            adapters,
             logger,
         }
     }
@@ -329,7 +320,7 @@ pub async fn anthropic_messages(
     if let Some((provider, model_id)) = find_provider_for_model(&state, &model).await {
         return do_proxy(&state, &provider, &model_id, body, &request_id, start).await;
     }
-    if state.adapters.lock().await.contains_key("anthropic") {
+    if state.adapters.contains_key("anthropic") {
         return do_proxy(&state, "anthropic", &model, body, &request_id, start).await;
     }
     build_error_response(
@@ -391,8 +382,7 @@ pub async fn put_config(
             "write_failed",
         );
     }
-    *state.config.lock().await = config.clone();
-    *state.adapters.lock().await = rebuild_adapters(&config);
+    *state.config.lock().await = config;
     (
         StatusCode::OK,
         axum::Json(json!({"ok": true, "message": "config saved"})),
@@ -462,18 +452,7 @@ pub async fn sync_pricing(State(state): State<Arc<AppState>>) -> Response {
     let mut config = state.config.lock().await;
     for (_provider_name, provider_config) in config.providers.iter_mut() {
         for model in provider_config.models.iter_mut() {
-            let direct = pricing_map.get(&model.id);
-            let normalized = normalize_model_key(&model.id);
-            let alias = pricing_map.get(&normalized).or_else(|| {
-                pricing_map.iter().find_map(|(k, v)| {
-                    if normalize_model_key(k) == normalized {
-                        Some(v)
-                    } else {
-                        None
-                    }
-                })
-            });
-            if let Some(entry) = direct.or(alias) {
+            if let Some(entry) = pricing_map.get(&model.id) {
                 if let Some(v) = entry.input_cost_per_token {
                     model.cost.input = v;
                 }
