@@ -119,6 +119,7 @@ async fn main() {
             "/api/settings",
             get(server::get_settings).put(server::put_settings),
         )
+        .route("/api/pricing/sync", post(server::sync_pricing))
         .with_state(state);
 
     let listener = match tokio::net::TcpListener::bind(&addr).await {

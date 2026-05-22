@@ -53,7 +53,7 @@ Minimal model config only needs `id` (plus provider settings). Fields like `name
 http://127.0.0.1:7331/
 ```
 
-Use the web UI to configure providers (API key, base URL, model list, cost) and choose default thinking/coding models.
+Use the web UI to configure providers (API key, base URL, model list, cost), choose default thinking/coding models, and optionally sync pricing/context from LiteLLM by model-id match.
 
 ### 5. Optional: Install the Pi extension
 
@@ -98,6 +98,7 @@ pinyx --verbose                # Debug logging
 | `/v1/models` | GET | Model registry (OpenAI-compatible format) |
 | `/api/config` | GET/PUT | Read or save gateway config JSON |
 | `/api/settings` | GET/PUT | Read or save thinking/coding model preferences |
+| `/api/pricing/sync` | POST | Pull model pricing/context from LiteLLM JSON by model id match |
 | `/` | GET | Web onboarding/configuration UI |
 | `/health` | GET | Gateway health + provider status |
 

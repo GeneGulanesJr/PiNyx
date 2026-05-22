@@ -8,6 +8,7 @@
 <section><h2>Gateway Config</h2><p>Configure API keys, endpoints, models, and costs in JSON.</p>
 <textarea id='cfg' rows='26'></textarea><br/>
 <button onclick='saveConfig()'>Save config</button>
+<button onclick='syncPricing()'>Sync pricing from LiteLLM</button>
 <div id='cmsg'></div>
 </section>
 <script>
@@ -27,5 +28,6 @@ async function saveSettings(){
  const r=await fetch('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
  document.getElementById('smsg').textContent=r.ok?'Saved roles':'Failed saving roles';
 }
+async function syncPricing(){ const r=await fetch('/api/pricing/sync',{method:'POST'}); const t=await r.json(); document.getElementById('cmsg').textContent=r.ok?`Synced pricing (${t.updated_models} models)`:('Sync failed: '+(t.error?.message||'unknown')); if(r.ok){await load();}}
 load();
 </script></body></html>

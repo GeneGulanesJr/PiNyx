@@ -17,6 +17,20 @@ use crate::config::AppConfig;
 use crate::logging::RequestLogger;
 use crate::proxy::{create_adapter, ProviderAdapter};
 
+#[derive(Debug, Deserialize)]
+struct LiteLlmPricingEntry {
+    #[serde(default)]
+    input_cost_per_token: Option<f64>,
+    #[serde(default)]
+    output_cost_per_token: Option<f64>,
+    #[serde(default)]
+    max_input_tokens: Option<u32>,
+    #[serde(default)]
+    max_output_tokens: Option<u32>,
+}
+
+const LITELLM_PRICING_URL: &str = "https://raw.githubusercontent.com/BerriAI/litellm/litellm_internal_staging/model_prices_and_context_window.json";
+
 pub struct AppState {
     pub config: Arc<Mutex<AppConfig>>,
     pub config_path: PathBuf,
@@ -400,6 +414,77 @@ pub async fn put_settings(
         );
     }
     (StatusCode::OK, axum::Json(json!({"ok": true}))).into_response()
+}
+
+pub async fn sync_pricing(State(state): State<Arc<AppState>>) -> Response {
+    let pricing_map = match reqwest::get(LITELLM_PRICING_URL).await {
+        Ok(resp) => match resp.json::<HashMap<String, LiteLlmPricingEntry>>().await {
+            Ok(json) => json,
+            Err(e) => {
+                return build_error_response(
+                    StatusCode::BAD_GATEWAY,
+                    &format!("invalid pricing JSON: {}", e),
+                    "pricing_sync_error",
+                )
+            }
+        },
+        Err(e) => {
+            return build_error_response(
+                StatusCode::BAD_GATEWAY,
+                &format!("failed to fetch pricing: {}", e),
+                "pricing_sync_error",
+            )
+        }
+    };
+
+    let mut updated = 0usize;
+    let mut config = state.config.lock().await;
+    for (_provider_name, provider_config) in config.providers.iter_mut() {
+        for model in provider_config.models.iter_mut() {
+            if let Some(entry) = pricing_map.get(&model.id) {
+                if let Some(v) = entry.input_cost_per_token {
+                    model.cost.input = v;
+                }
+                if let Some(v) = entry.output_cost_per_token {
+                    model.cost.output = v;
+                }
+                if let Some(v) = entry.max_input_tokens {
+                    model.context_window = v;
+                }
+                if let Some(v) = entry.max_output_tokens {
+                    model.max_tokens = v;
+                }
+                updated += 1;
+            }
+        }
+    }
+
+    let serialized = match serde_json::to_string_pretty(&*config) {
+        Ok(v) => v,
+        Err(e) => {
+            return build_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &e.to_string(),
+                "write_failed",
+            )
+        }
+    };
+    if let Some(parent) = state.config_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Err(e) = std::fs::write(&state.config_path, serialized) {
+        return build_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &e.to_string(),
+            "write_failed",
+        );
+    }
+
+    (
+        StatusCode::OK,
+        axum::Json(json!({"ok": true, "updated_models": updated, "source": LITELLM_PRICING_URL})),
+    )
+        .into_response()
 }
 
 pub async fn web_ui() -> impl IntoResponse {
