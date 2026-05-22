@@ -52,6 +52,30 @@ async function fetchPiNyxModels(): Promise<PiNyxModel[]> {
   }
 }
 
+
+async function syncPiNyxModels(pi: ExtensionAPI): Promise<number> {
+  const models = await fetchPiNyxModels();
+  pi.registerProvider("pinyx", {
+    baseUrl: `${PINYX_BASE_URL}/v1`,
+    api: "openai-completions",
+    apiKey: "pinyx",
+    models: models.map((m) => ({
+      id: m.id,
+      name: m.name || m.id,
+      reasoning: m.reasoning || false,
+      input: (m.input || ["text"]) as ("text" | "image")[],
+      contextWindow: m.context_window || 128000,
+      maxTokens: m.max_tokens || 16384,
+      cost: {
+        input: m.cost?.input || 0,
+        output: m.cost?.output || 0,
+        cacheRead: m.cost?.cache_read || 0,
+        cacheWrite: m.cost?.cache_write || 0,
+      },
+    })),
+  });
+  return models.length;
+}
 export default async function (pi: ExtensionAPI) {
   pi.registerProvider("pinyx", {
     name: "PiNyx (local)",
@@ -70,6 +94,7 @@ export default async function (pi: ExtensionAPI) {
           );
         }
         callbacks.onAuth({ url: PINYX_BASE_URL });
+        await syncPiNyxModels(pi);
         return {
           refresh: "pinyx-local",
           access: "pinyx",
@@ -89,28 +114,7 @@ export default async function (pi: ExtensionAPI) {
 
   const health = await checkPiNyxHealth();
   if (health && health.status === "ok") {
-    const models = await fetchPiNyxModels();
-    if (models.length > 0) {
-      pi.registerProvider("pinyx", {
-        baseUrl: `${PINYX_BASE_URL}/v1`,
-        api: "openai-completions",
-        apiKey: "pinyx",
-        models: models.map((m) => ({
-          id: m.id,
-          name: m.name || m.id,
-          reasoning: m.reasoning || false,
-          input: (m.input || ["text"]) as ("text" | "image")[],
-          contextWindow: m.context_window || 128000,
-          maxTokens: m.max_tokens || 16384,
-          cost: {
-            input: m.cost?.input || 0,
-            output: m.cost?.output || 0,
-            cacheRead: m.cost?.cache_read || 0,
-            cacheWrite: m.cost?.cache_write || 0,
-          },
-        })),
-      });
-    }
+    await syncPiNyxModels(pi);
   }
 
   pi.registerCommand("pinyx-status", {
@@ -136,7 +140,7 @@ export default async function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     const health = await checkPiNyxHealth();
     if (health && health.status === "ok") {
-      const modelCount = (await fetchPiNyxModels()).length;
+      const modelCount = await syncPiNyxModels(pi);
       ctx.ui.setStatus("pinyx", `PiNyx: ${modelCount} models`);
     } else {
       ctx.ui.setStatus("pinyx", "PiNyx: offline");
