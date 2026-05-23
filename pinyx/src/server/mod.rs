@@ -85,7 +85,7 @@ fn parse_model_id(model: &str) -> Option<(String, String)> {
 
 async fn find_provider_for_model(state: &AppState, model: &str) -> Option<(String, String)> {
     if let Some((provider, model_id)) = parse_model_id(model) {
-        if state.adapters.lock().await.contains_key(&provider) {
+        if state.adapters.contains_key(&provider) {
             return Some((provider, model_id));
         }
     }
@@ -148,9 +148,8 @@ async fn do_proxy(
         }
     };
 
-    let adapter_guard = state.adapters.lock().await;
-    let adapter = match adapter_guard.get(provider_name) {
-        Some(a) => a,
+    let adapter: &dyn ProviderAdapter = match state.adapters.get(provider_name) {
+        Some(a) => a.as_ref(),
         None => {
             return build_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
