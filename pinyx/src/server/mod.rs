@@ -1,5 +1,5 @@
 use axum::body::Body;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::IntoResponse;
 use axum::response::Response;
@@ -23,13 +23,25 @@ struct LiteLlmPricingEntry {
     input_cost_per_token: Option<f64>,
     #[serde(default)]
     output_cost_per_token: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "flexible_u32")]
     max_input_tokens: Option<u32>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "flexible_u32")]
     max_output_tokens: Option<u32>,
 }
 
-const LITELLM_PRICING_URL: &str = "https://raw.githubusercontent.com/BerriAI/litellm/litellm_internal_staging/model_prices_and_context_window.json";
+fn flexible_u32<'de, D>(de: D) -> Result<Option<u32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let val: Option<serde_json::Value> = Option::deserialize(de)?;
+    match val {
+        Some(serde_json::Value::Number(n)) => Ok(n.as_u64().map(|v| v as u32)),
+        Some(_) => Ok(None), // string or other type — skip
+        None => Ok(None),
+    }
+}
+
+const LITELLM_PRICING_URL: &str = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 
 pub struct AppState {
     pub config: Arc<Mutex<AppConfig>>,
@@ -493,6 +505,92 @@ pub async fn sync_pricing(State(state): State<Arc<AppState>>) -> Response {
     (
         StatusCode::OK,
         axum::Json(json!({"ok": true, "updated_models": updated, "source": LITELLM_PRICING_URL})),
+    )
+        .into_response()
+}
+
+pub async fn get_keys(State(state): State<Arc<AppState>>) -> axum::Json<Value> {
+    let config = state.config.lock().await;
+    let mut providers = serde_json::Map::new();
+    for (name, provider_config) in &config.providers {
+        let resolved = config.resolve_api_key(&provider_config.api_key);
+        let masked = resolved.as_ref().map(|k| {
+            if k.len() > 12 {
+                format!("{}...{}", &k[..6], &k[k.len()-4..])
+            } else if k.len() > 4 {
+                format!("{}****", &k[..2])
+            } else {
+                "****".to_string()
+            }
+        });
+        let is_env = provider_config.api_key.starts_with('$');
+        providers.insert(name.clone(), json!({
+            "status": if resolved.is_some() { "resolved" } else { "missing" },
+            "masked": masked.unwrap_or_default(),
+            "is_env_var": is_env,
+            "ref": if is_env { provider_config.api_key.clone() } else { String::new() },
+        }));
+    }
+    axum::Json(json!({ "providers": providers }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateKeyRequest {
+    pub api_key: String,
+}
+
+pub async fn put_key(
+    State(state): State<Arc<AppState>>,
+    Path(provider): Path<String>,
+    body: axum::Json<UpdateKeyRequest>,
+) -> Response {
+    let mut config = state.config.lock().await;
+    let provider_config = match config.providers.get_mut(&provider) {
+        Some(p) => p,
+        None => {
+            return build_error_response(
+                StatusCode::NOT_FOUND,
+                &format!("Unknown provider: {}", provider),
+                "not_found",
+            )
+        }
+    };
+
+    let new_key = body.api_key.trim().to_string();
+    if new_key.is_empty() {
+        return build_error_response(
+            StatusCode::BAD_REQUEST,
+            "API key cannot be empty",
+            "invalid_key",
+        );
+    }
+
+    provider_config.api_key = new_key;
+
+    let serialized = match serde_json::to_string_pretty(&*config) {
+        Ok(v) => v,
+        Err(e) => {
+            return build_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &e.to_string(),
+                "write_failed",
+            )
+        }
+    };
+    if let Some(parent) = state.config_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Err(e) = std::fs::write(&state.config_path, serialized) {
+        return build_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &e.to_string(),
+            "write_failed",
+        );
+    }
+
+    (
+        StatusCode::OK,
+        axum::Json(json!({"ok": true, "provider": provider})),
     )
         .into_response()
 }

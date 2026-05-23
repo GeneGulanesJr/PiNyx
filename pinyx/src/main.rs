@@ -3,7 +3,7 @@ mod logging;
 mod proxy;
 mod server;
 
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::Router;
 use clap::Parser;
 use std::path::PathBuf;
@@ -120,6 +120,8 @@ async fn main() {
             get(server::get_settings).put(server::put_settings),
         )
         .route("/api/pricing/sync", post(server::sync_pricing))
+        .route("/api/keys", get(server::get_keys))
+        .route("/api/keys/{provider}", put(server::put_key))
         .with_state(state);
 
     let listener = match tokio::net::TcpListener::bind(&addr).await {
