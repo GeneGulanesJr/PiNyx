@@ -14,7 +14,6 @@
     --accent-dim: #00d4aa33;
     --danger: #ff4466;
     --danger-dim: #ff446633;
-    --success: #00d4aa;
     --warn: #ffaa00;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,12 +26,7 @@
     padding: 32px 20px;
     line-height: 1.5;
   }
-  h1 {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    margin-bottom: 4px;
-  }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
   h1 span { color: var(--accent); }
   .subtitle { color: var(--text-dim); margin-bottom: 32px; font-size: 14px; }
   section {
@@ -43,150 +37,94 @@
     margin-bottom: 16px;
   }
   section h2 {
-    font-size: 15px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-dim);
-    margin-bottom: 16px;
+    font-size: 15px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 16px;
   }
   .provider-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
   }
   .provider-row:last-child { border-bottom: none; }
-  .provider-name {
-    width: 100px;
-    font-weight: 600;
-    font-size: 14px;
-    flex-shrink: 0;
-  }
+  .provider-name { width: 100px; font-weight: 600; font-size: 14px; flex-shrink: 0; }
   .provider-status {
-    font-size: 12px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    width: 70px;
-    text-align: center;
-    font-weight: 500;
+    font-size: 12px; padding: 2px 8px; border-radius: 4px;
+    flex-shrink: 0; width: 70px; text-align: center; font-weight: 500;
   }
   .status-resolved { background: var(--accent-dim); color: var(--accent); }
   .status-missing { background: var(--danger-dim); color: var(--danger); }
   .provider-hint {
-    flex: 1;
-    font-size: 13px;
-    color: var(--text-dim);
+    flex: 1; font-size: 13px; color: var(--text-dim);
     font-family: 'SF Mono', 'Fira Code', monospace;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .provider-input {
-    width: 0;
-    flex: 1;
-    min-width: 0;
-  }
+  .provider-input { width: 0; flex: 1; min-width: 0; }
   .provider-input input {
-    width: 100%;
-    padding: 6px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 13px;
-    outline: none;
-    transition: border-color 0.2s;
+    width: 100%; padding: 6px 10px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; outline: none;
   }
   .provider-input input:focus { border-color: var(--accent); }
   .provider-input input::placeholder { color: #555; }
   button {
-    padding: 7px 14px;
-    border-radius: 6px;
-    border: none;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s;
+    padding: 7px 14px; border-radius: 6px; border: none;
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
   }
-  .btn-accent {
-    background: var(--accent);
-    color: #000;
-  }
+  .btn-accent { background: var(--accent); color: #000; }
   .btn-accent:hover { opacity: 0.85; }
-  .btn-accent:disabled { opacity: 0.4; cursor: default; }
-  .btn-ghost {
-    background: transparent;
-    color: var(--text-dim);
-    border: 1px solid var(--border);
-  }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
   .btn-ghost:hover { border-color: var(--text-dim); color: var(--text); }
-  .btn-danger {
-    background: var(--danger-dim);
-    color: var(--danger);
-  }
+  .btn-danger { background: var(--danger-dim); color: var(--danger); font-size: 12px; padding: 4px 10px; }
   .btn-danger:hover { background: var(--danger); color: #fff; }
-  .action-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-    align-items: center;
-  }
+  .btn-sm { font-size: 12px; padding: 5px 10px; }
+  .action-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
   .msg { font-size: 13px; padding: 4px 0; }
   .msg-ok { color: var(--accent); }
   .msg-err { color: var(--danger); }
-  .msg-warn { color: var(--warn); }
 
   .roles-grid {
-    display: grid;
-    grid-template-columns: 120px 1fr;
-    gap: 8px 12px;
-    align-items: center;
+    display: grid; grid-template-columns: 120px 1fr;
+    gap: 8px 12px; align-items: center;
   }
-  .roles-grid label {
-    font-size: 13px;
-    color: var(--text-dim);
-    font-weight: 500;
+  .roles-grid label { font-size: 13px; color: var(--text-dim); font-weight: 500; }
+  .roles-grid select {
+    width: 100%; padding: 7px 10px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 13px; outline: none;
   }
-  .roles-grid select, .roles-grid input {
-    width: 100%;
-    padding: 7px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 13px;
-    outline: none;
-  }
-  .roles-grid select:focus, .roles-grid input:focus { border-color: var(--accent); }
+  .roles-grid select:focus { border-color: var(--accent); }
 
   .config-section textarea {
-    width: 100%;
-    padding: 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 12px;
-    line-height: 1.6;
-    resize: vertical;
-    outline: none;
+    width: 100%; padding: 10px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px;
+    line-height: 1.6; resize: vertical; outline: none;
   }
   .config-section textarea:focus { border-color: var(--accent); }
-  .health-bar {
-    display: flex;
-    gap: 16px;
-    font-size: 13px;
-    color: var(--text-dim);
-  }
+
+  .health-bar { display: flex; gap: 16px; font-size: 13px; color: var(--text-dim); }
   .health-bar strong { color: var(--text); }
 
-  .edit-toggle { font-size: 12px; color: var(--accent); cursor: pointer; }
-  .edit-toggle:hover { text-decoration: underline; }
+  /* Add provider form */
+  .add-form {
+    margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);
+  }
+  .add-form-grid {
+    display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; align-items: center;
+  }
+  .add-form-grid label { font-size: 13px; color: var(--text-dim); font-weight: 500; }
+  .add-form-grid input, .add-form-grid select {
+    width: 100%; padding: 7px 10px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 13px; outline: none;
+  }
+  .add-form-grid input:focus, .add-form-grid select:focus { border-color: var(--accent); }
+  .add-form-grid input::placeholder { color: #555; }
+  .add-form-grid select { appearance: none; cursor: pointer; }
+  .add-toggle {
+    display: inline-block; font-size: 13px; color: var(--accent);
+    cursor: pointer; margin-top: 8px;
+  }
+  .add-toggle:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -197,9 +135,30 @@
 <div id="health-bar" class="health-bar" style="margin-bottom:20px"></div>
 
 <section>
-  <h2>API Keys</h2>
+  <h2>Providers</h2>
   <div id="keys-list"></div>
   <div id="kmsg" class="msg" style="margin-top:8px"></div>
+  <span class="add-toggle" onclick="showAddForm()">+ Add provider</span>
+  <div id="add-form" class="add-form" style="display:none">
+    <div class="add-form-grid">
+      <label>Name</label>
+      <input id="add-name" placeholder="e.g. openai, anthropic, my-local" />
+      <label>API type</label>
+      <select id="add-api">
+        <option value="openai-completions">OpenAI Completions</option>
+        <option value="anthropic-messages">Anthropic Messages</option>
+        <option value="google-generative-ai">Google Generative AI</option>
+      </select>
+      <label>Base URL</label>
+      <input id="add-url" placeholder="https://api.example.com/v1" />
+      <label>API Key</label>
+      <input id="add-key" type="password" placeholder="Paste API key or $ENV_VAR" />
+    </div>
+    <div class="action-row">
+      <button class="btn-accent btn-sm" onclick="addProvider()">Add provider</button>
+      <button class="btn-ghost btn-sm" onclick="hideAddForm()">Cancel</button>
+    </div>
+  </div>
 </section>
 
 <section>
@@ -272,22 +231,29 @@ function renderKeys() {
   for (const [name, info] of Object.entries(keysData)) {
     const row = document.createElement('div');
     row.className = 'provider-row';
-
     const statusClass = info.status === 'resolved' ? 'status-resolved' : 'status-missing';
     const statusText = info.status === 'resolved' ? 'Active' : 'Missing';
-
     row.innerHTML = `
       <div class="provider-name">${name}</div>
       <div class="provider-status ${statusClass}">${statusText}</div>
-      <div class="provider-hint" id="hint-${name}">${info.masked || (info.is_env_var ? info.ref : '—')}</div>
+      <div class="provider-hint" id="hint-${name}">${info.masked || (info.is_env_var ? info.ref : '&mdash;')}</div>
       <div class="provider-input" id="input-wrap-${name}" style="display:none">
         <input type="password" id="input-${name}" placeholder="Paste API key..." />
       </div>
-      <button class="btn-ghost" id="edit-btn-${name}" onclick="toggleEdit('${name}')">Edit</button>
-      <button class="btn-accent" id="save-btn-${name}" style="display:none" onclick="saveKey('${name}')">Save</button>
+      <button class="btn-ghost btn-sm" id="edit-btn-${name}" onclick="toggleEdit('${name}')">Edit key</button>
+      <button class="btn-accent btn-sm" id="save-btn-${name}" style="display:none" onclick="saveKey('${name}')">Save</button>
+      <button class="btn-danger" onclick="deleteProvider('${name}')">Remove</button>
     `;
     list.appendChild(row);
   }
+}
+
+function showAddForm() {
+  document.getElementById('add-form').style.display = '';
+  document.getElementById('add-name').focus();
+}
+function hideAddForm() {
+  document.getElementById('add-form').style.display = 'none';
 }
 
 function toggleEdit(name) {
@@ -297,15 +263,11 @@ function toggleEdit(name) {
   const saveBtn = document.getElementById('save-btn-' + name);
   const isEditing = wrap.style.display !== 'none';
   if (isEditing) {
-    hint.style.display = '';
-    wrap.style.display = 'none';
-    editBtn.style.display = '';
-    saveBtn.style.display = 'none';
+    hint.style.display = ''; wrap.style.display = 'none';
+    editBtn.style.display = ''; saveBtn.style.display = 'none';
   } else {
-    hint.style.display = 'none';
-    wrap.style.display = '';
-    editBtn.style.display = 'none';
-    saveBtn.style.display = '';
+    hint.style.display = 'none'; wrap.style.display = '';
+    editBtn.style.display = 'none'; saveBtn.style.display = '';
     document.getElementById('input-' + name).focus();
   }
 }
@@ -315,7 +277,6 @@ async function saveKey(name) {
   const msg = document.getElementById('kmsg');
   const key = input.value.trim();
   if (!key) { msg.className = 'msg msg-err'; msg.textContent = 'Key cannot be empty'; return; }
-
   try {
     const r = await fetch(`/api/keys/${encodeURIComponent(name)}`, {
       method: 'PUT',
@@ -324,19 +285,55 @@ async function saveKey(name) {
     });
     const t = await r.json();
     if (r.ok) {
-      msg.className = 'msg msg-ok';
-      msg.textContent = `Saved key for ${name}`;
-      input.value = '';
-      await loadKeys();
-      await loadHealth();
+      msg.className = 'msg msg-ok'; msg.textContent = `Saved key for ${name}`;
+      input.value = ''; await loadKeys(); await loadHealth();
     } else {
-      msg.className = 'msg msg-err';
-      msg.textContent = t.error?.message || 'Failed to save';
+      msg.className = 'msg msg-err'; msg.textContent = t.error?.message || 'Failed';
     }
-  } catch (e) {
-    msg.className = 'msg msg-err';
-    msg.textContent = 'Network error';
-  }
+  } catch { msg.className = 'msg msg-err'; msg.textContent = 'Network error'; }
+}
+
+async function addProvider() {
+  const msg = document.getElementById('kmsg');
+  const name = document.getElementById('add-name').value.trim();
+  const api = document.getElementById('add-api').value;
+  const url = document.getElementById('add-url').value.trim();
+  const key = document.getElementById('add-key').value.trim();
+  if (!name) { msg.className = 'msg msg-err'; msg.textContent = 'Name is required'; return; }
+  if (!url) { msg.className = 'msg msg-err'; msg.textContent = 'Base URL is required'; return; }
+  try {
+    const r = await fetch('/api/providers', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, api, baseUrl: url, apiKey: key || '$PLACEHOLDER', models: [] })
+    });
+    const t = await r.json();
+    if (r.ok) {
+      msg.className = 'msg msg-ok'; msg.textContent = `Added provider: ${name}`;
+      document.getElementById('add-name').value = '';
+      document.getElementById('add-url').value = '';
+      document.getElementById('add-key').value = '';
+      hideAddForm();
+      await load();
+    } else {
+      msg.className = 'msg msg-err'; msg.textContent = t.error?.message || 'Failed';
+    }
+  } catch { msg.className = 'msg msg-err'; msg.textContent = 'Network error'; }
+}
+
+async function deleteProvider(name) {
+  if (!confirm(`Remove provider "${name}"? This cannot be undone.`)) return;
+  const msg = document.getElementById('kmsg');
+  try {
+    const r = await fetch(`/api/providers/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    if (r.ok) {
+      msg.className = 'msg msg-ok'; msg.textContent = `Removed ${name}`;
+      await load();
+    } else {
+      const t = await r.json();
+      msg.className = 'msg msg-err'; msg.textContent = t.error?.message || 'Failed';
+    }
+  } catch { msg.className = 'msg msg-err'; msg.textContent = 'Network error'; }
 }
 
 async function loadModels() {
@@ -354,8 +351,7 @@ function populateModelSelects() {
     sel.innerHTML = '<option value="">— select —</option>';
     allModels.forEach(m => {
       const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.name || m.id;
+      opt.value = m.id; opt.textContent = m.name || m.id;
       if (m.id === current) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -378,15 +374,11 @@ async function saveSettings() {
   };
   try {
     const r = await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body)
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
     });
     msg.className = 'msg ' + (r.ok ? 'msg-ok' : 'msg-err');
     msg.textContent = r.ok ? 'Saved roles' : 'Failed';
-  } catch {
-    msg.className = 'msg msg-err'; msg.textContent = 'Network error';
-  }
+  } catch { msg.className = 'msg msg-err'; msg.textContent = 'Network error'; }
 }
 
 async function saveConfig() {
@@ -394,16 +386,12 @@ async function saveConfig() {
   try {
     const parsed = JSON.parse(document.getElementById('cfg').value);
     const r = await fetch('/api/config', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(parsed)
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(parsed)
     });
     msg.className = 'msg ' + (r.ok ? 'msg-ok' : 'msg-err');
     msg.textContent = r.ok ? 'Saved config' : 'Failed';
-    if (r.ok) { await loadKeys(); await loadHealth(); }
-  } catch (e) {
-    msg.className = 'msg msg-err'; msg.textContent = 'Invalid JSON';
-  }
+    if (r.ok) { cfgLoaded = false; await load(); }
+  } catch { msg.className = 'msg msg-err'; msg.textContent = 'Invalid JSON'; }
 }
 
 async function syncPricing() {
@@ -414,9 +402,7 @@ async function syncPricing() {
     msg.className = 'msg ' + (r.ok ? 'msg-ok' : 'msg-err');
     msg.textContent = r.ok ? `Synced pricing (${t.updated_models} models)` : ('Sync failed: ' + (t.error?.message || 'unknown'));
     if (r.ok) await load();
-  } catch {
-    msg.className = 'msg msg-err'; msg.textContent = 'Network error';
-  }
+  } catch { msg.className = 'msg msg-err'; msg.textContent = 'Network error'; }
 }
 
 load();

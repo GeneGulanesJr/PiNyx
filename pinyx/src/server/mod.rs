@@ -10,10 +10,10 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{error, info, warn};
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, ModelConfig, ProviderConfig};
 use crate::logging::RequestLogger;
 use crate::proxy::{create_adapter, ProviderAdapter};
 
@@ -46,7 +46,7 @@ const LITELLM_PRICING_URL: &str = "https://raw.githubusercontent.com/BerriAI/lit
 pub struct AppState {
     pub config: Arc<Mutex<AppConfig>>,
     pub config_path: PathBuf,
-    pub adapters: HashMap<String, Box<dyn ProviderAdapter>>,
+    pub adapters: Arc<RwLock<HashMap<String, Box<dyn ProviderAdapter>>>>,
     pub logger: RequestLogger,
 }
 
@@ -73,7 +73,7 @@ impl AppState {
         Self {
             config: Arc::new(Mutex::new(config)),
             config_path,
-            adapters,
+            adapters: Arc::new(RwLock::new(adapters)),
             logger,
         }
     }
@@ -97,7 +97,7 @@ fn parse_model_id(model: &str) -> Option<(String, String)> {
 
 async fn find_provider_for_model(state: &AppState, model: &str) -> Option<(String, String)> {
     if let Some((provider, model_id)) = parse_model_id(model) {
-        if state.adapters.contains_key(&provider) {
+        if state.adapters.read().await.contains_key(&provider) {
             return Some((provider, model_id));
         }
     }
@@ -160,7 +160,8 @@ async fn do_proxy(
         }
     };
 
-    let adapter: &dyn ProviderAdapter = match state.adapters.get(provider_name) {
+    let adapters = state.adapters.read().await;
+    let adapter: &dyn ProviderAdapter = match adapters.get(provider_name) {
         Some(a) => a.as_ref(),
         None => {
             return build_error_response(
@@ -331,7 +332,7 @@ pub async fn anthropic_messages(
     if let Some((provider, model_id)) = find_provider_for_model(&state, &model).await {
         return do_proxy(&state, &provider, &model_id, body, &request_id, start).await;
     }
-    if state.adapters.contains_key("anthropic") {
+    if state.adapters.read().await.contains_key("anthropic") {
         return do_proxy(&state, "anthropic", &model, body, &request_id, start).await;
     }
     build_error_response(
@@ -593,6 +594,94 @@ pub async fn put_key(
         axum::Json(json!({"ok": true, "provider": provider})),
     )
         .into_response()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddProviderRequest {
+    pub name: String,
+    pub api: String,
+    #[serde(rename = "baseUrl")]
+    pub base_url: String,
+    #[serde(rename = "apiKey")]
+    pub api_key: String,
+    #[serde(default)]
+    pub models: Vec<ModelConfig>,
+}
+
+pub async fn add_provider(
+    State(state): State<Arc<AppState>>,
+    body: axum::Json<AddProviderRequest>,
+) -> Response {
+    let name = body.name.trim().to_string();
+    if name.is_empty() {
+        return build_error_response(StatusCode::BAD_REQUEST, "Provider name is required", "invalid_request");
+    }
+    if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        return build_error_response(StatusCode::BAD_REQUEST, "Name must be alphanumeric (dashes/underscores ok)", "invalid_name");
+    }
+
+    let provider_config = ProviderConfig {
+        api: body.api.clone(),
+        base_url: body.base_url.clone(),
+        api_key: body.api_key.clone(),
+        models: body.models.clone(),
+    };
+
+    let adapter = create_adapter(&provider_config);
+
+    let mut config = state.config.lock().await;
+    if config.providers.contains_key(&name) {
+        return build_error_response(StatusCode::CONFLICT, &format!("Provider '{}' already exists", name), "already_exists");
+    }
+
+    config.providers.insert(name.clone(), provider_config);
+
+    let serialized = match serde_json::to_string_pretty(&*config) {
+        Ok(v) => v,
+        Err(e) => {
+            return build_error_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string(), "write_failed")
+        }
+    };
+    if let Some(parent) = state.config_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Err(e) = std::fs::write(&state.config_path, serialized) {
+        return build_error_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string(), "write_failed");
+    }
+
+    state.adapters.write().await.insert(name.clone(), adapter);
+
+    (
+        StatusCode::OK,
+        axum::Json(json!({"ok": true, "provider": name})),
+    )
+        .into_response()
+}
+
+pub async fn delete_provider(
+    State(state): State<Arc<AppState>>,
+    Path(provider): Path<String>,
+) -> Response {
+    let mut config = state.config.lock().await;
+    if config.providers.remove(&provider).is_none() {
+        return build_error_response(StatusCode::NOT_FOUND, &format!("Unknown provider: {}", provider), "not_found");
+    }
+    state.adapters.write().await.remove(&provider);
+
+    let serialized = match serde_json::to_string_pretty(&*config) {
+        Ok(v) => v,
+        Err(e) => {
+            return build_error_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string(), "write_failed")
+        }
+    };
+    if let Some(parent) = state.config_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Err(e) = std::fs::write(&state.config_path, serialized) {
+        return build_error_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string(), "write_failed");
+    }
+
+    (StatusCode::OK, axum::Json(json!({"ok": true, "removed": provider}))).into_response()
 }
 
 pub async fn web_ui() -> impl IntoResponse {
