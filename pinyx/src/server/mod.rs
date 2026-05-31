@@ -342,10 +342,70 @@ pub async fn anthropic_messages(
     )
 }
 
+async fn fetch_provider_models(
+    provider_name: &str,
+    provider_config: &ProviderConfig,
+    api_key: &str,
+) -> Vec<Value> {
+    let url = format!("{}/models", provider_config.base_url.trim_end_matches('/'));
+    let response = match reqwest::Client::new()
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(e) => {
+            warn!(provider = provider_name, error = %e, "failed to fetch provider models");
+            return Vec::new();
+        }
+    };
+
+    if !response.status().is_success() {
+        warn!(provider = provider_name, status = %response.status(), "provider models endpoint returned error");
+        return Vec::new();
+    }
+
+    let body = match response.json::<Value>().await {
+        Ok(body) => body,
+        Err(e) => {
+            warn!(provider = provider_name, error = %e, "provider models response was not valid JSON");
+            return Vec::new();
+        }
+    };
+
+    body.get("data")
+        .and_then(|v| v.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let id = item.get("id").and_then(|v| v.as_str())?;
+                    Some(json!({
+                        "id": format!("{}/{}", provider_name, id),
+                        "object": "model",
+                        "created": item.get("created").and_then(|v| v.as_i64()).unwrap_or(0),
+                        "owned_by": item.get("owned_by").and_then(|v| v.as_str()).unwrap_or(provider_name),
+                        "name": item.get("name").and_then(|v| v.as_str()).unwrap_or(id),
+                    }))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 pub async fn list_models(State(state): State<Arc<AppState>>) -> axum::Json<Value> {
+    let config = state.config.lock().await.clone();
     let mut models = Vec::new();
-    let config = state.config.lock().await;
+
     for (provider_name, provider_config) in &config.providers {
+        if provider_config.models.is_empty() {
+            if let Some(api_key) = config.resolve_api_key(&provider_config.api_key) {
+                models.extend(fetch_provider_models(provider_name, provider_config, &api_key).await);
+            }
+            continue;
+        }
+
         for m in &provider_config.models {
             models.push(json!({"id": format!("{}/{}", provider_name, m.id),"object": "model","created": 0,"owned_by": provider_name,"name": if m.name.is_empty() { &m.id } else { &m.name },"reasoning": m.reasoning,"input": m.input,"context_window": m.context_window,"max_tokens": m.max_tokens,"cost": {"input": m.cost.input,"output": m.cost.output,"cache_read": m.cost.cache_read,"cache_write": m.cost.cache_write}}));
         }
