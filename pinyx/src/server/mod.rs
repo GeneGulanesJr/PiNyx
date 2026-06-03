@@ -455,6 +455,16 @@ pub async fn put_config(
         );
     }
     *state.config.lock().await = config;
+
+    // Rebuild adapters so new providers are immediately routable
+    let config_snapshot = state.config.lock().await.clone();
+    let mut adapters = state.adapters.write().await;
+    adapters.clear();
+    for (name, provider_config) in &config_snapshot.providers {
+        let adapter = create_adapter(provider_config);
+        adapters.insert(name.clone(), adapter);
+    }
+
     (
         StatusCode::OK,
         axum::Json(json!({"ok": true, "message": "config saved"})),
