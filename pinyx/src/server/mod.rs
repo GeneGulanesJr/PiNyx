@@ -137,41 +137,55 @@ fn request_has_image(body: &Value) -> bool {
     false
 }
 
-async fn model_supports_image(state: &AppState, model: &str) -> bool {
+fn model_supports_image(config: &AppConfig, model: &str) -> bool {
     let bare = model.rsplit_once('/').map(|(_, id)| id).unwrap_or(model);
-    let config = state.config.lock().await;
+    config.providers.values().any(|provider_config| {
+        provider_config.models.iter().any(|m| {
+            (m.id == bare || m.name == bare || m.id == model || m.name == model)
+                && m.input.iter().any(|c| c.as_str() == "image")
+        })
+    })
+}
+
+fn auto_detect_vision_model(config: &AppConfig) -> Option<String> {
     for provider_config in config.providers.values() {
         for m in &provider_config.models {
-            if m.id == bare || m.name == bare || m.id == model || m.name == model {
-                return m.input.iter().any(|c| c.as_str() == "image");
+            if m.input.iter().any(|c| c.as_str() == "image") {
+                return Some(m.id.clone());
             }
         }
     }
-    false
+    None
 }
 
 async fn resolve_model(state: &AppState, body: &Value) -> Option<String> {
     let requested = body.get("model")?.as_str()?.to_string();
-
-    let vision_model = {
-        let config = state.config.lock().await;
-        config.vision_model.clone()
-    };
-
-    if request_has_image(body) {
-        if let Some(vision) = vision_model {
-            if vision != requested && !model_supports_image(state, &requested).await {
-                info!(
-                    requested = %requested,
-                    rerouted = %vision,
-                    "vision routing: image request rerouted to vision model"
-                );
-                return Some(vision);
-            }
-        }
+    if !request_has_image(body) {
+        return Some(requested);
     }
 
-    Some(requested)
+    let chosen = {
+        let config = state.config.lock().await;
+        if model_supports_image(&config, &requested) {
+            None
+        } else if let Some(pinned) = config.vision_model.clone() {
+            Some(pinned)
+        } else {
+            auto_detect_vision_model(&config)
+        }
+    };
+
+    match chosen {
+        Some(vision) if vision != requested => {
+            info!(
+                requested = %requested,
+                rerouted = %vision,
+                "vision routing: image request rerouted to vision model"
+            );
+            Some(vision)
+        }
+        _ => Some(requested),
+    }
 }
 
 fn build_error_response(status: StatusCode, message: &str, error_type: &str) -> Response {
