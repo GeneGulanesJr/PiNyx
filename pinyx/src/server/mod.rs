@@ -83,7 +83,23 @@ impl AppState {
 pub struct WebUiSettings {
     pub thinking_model: String,
     pub coding_model: String,
+    #[serde(default)]
+    pub planning_signals: Vec<String>,
 }
+
+impl Default for WebUiSettings {
+    fn default() -> Self {
+        Self {
+            thinking_model: String::new(),
+            coding_model: String::new(),
+            planning_signals: Vec::new(),
+        }
+    }
+}
+
+// Planning skills on a stock Pi install. `subagent-driven-development` is
+// intentionally excluded: it *executes* plans, so it is executor work.
+const DEFAULT_PLANNING_SIGNALS: &[&str] = &["writing-plans", "brainstorming"];
 
 fn parse_model_id(model: &str) -> Option<(String, String)> {
     let pos = model.find('/')?;
@@ -158,34 +174,107 @@ fn auto_detect_vision_model(config: &AppConfig) -> Option<String> {
     None
 }
 
+/// Collect text from a single message's `content`, handling both string and
+/// array-of-parts forms (mirrors request_has_image's walk).
+fn message_text(content: &Value, out: &mut String) {
+    if let Some(s) = content.as_str() {
+        out.push_str(s);
+    } else if let Some(parts) = content.as_array() {
+        for part in parts {
+            if part.get("type").and_then(|v| v.as_str()) == Some("text") {
+                if let Some(t) = part.get("text").and_then(|v| v.as_str()) {
+                    out.push_str(t);
+                }
+            }
+        }
+    }
+}
+
+/// True if any planning-skill fingerprint appears in the request's message text.
+/// Pi injects active-skill instructions into the system prompt and the assistant
+/// announces `"I'm using the <skill> skill…"`, so scanning all roles is reliable.
+fn classify_planning(body: &Value, signals: &[String]) -> bool {
+    if signals.is_empty() {
+        return false;
+    }
+    let mut text = String::new();
+    if let Some(messages) = body.get("messages").and_then(|m| m.as_array()) {
+        for msg in messages {
+            if let Some(content) = msg.get("content") {
+                message_text(content, &mut text);
+            }
+        }
+    }
+    // Anthropic splits the system prompt out of `messages`; cover both shapes.
+    if let Some(sys) = body.get("system") {
+        message_text(sys, &mut text);
+    }
+    let text = text.to_lowercase();
+    signals.iter().any(|s| text.contains(&s.to_lowercase()))
+}
+
 async fn resolve_model(state: &AppState, body: &Value) -> Option<String> {
     let requested = body.get("model")?.as_str()?.to_string();
-    if !request_has_image(body) {
+
+    // Vision is a capability requirement — it wins over role routing.
+    if request_has_image(body) {
+        let chosen = {
+            let config = state.config.lock().await;
+            if model_supports_image(&config, &requested) {
+                None
+            } else if let Some(pinned) = config.vision_model.clone() {
+                Some(pinned)
+            } else {
+                auto_detect_vision_model(&config)
+            }
+        };
+        return match chosen {
+            Some(vision) if vision != requested => {
+                info!(
+                    requested = %requested,
+                    rerouted = %vision,
+                    "vision routing: image request rerouted to vision model"
+                );
+                Some(vision)
+            }
+            _ => Some(requested),
+        };
+    }
+
+    // Role routing: planning skills → thinking_model, otherwise → coding_model.
+    let settings = read_settings(&state.config_path);
+    let signals: Vec<String> = if settings.planning_signals.is_empty() {
+        DEFAULT_PLANNING_SIGNALS.iter().map(|s| s.to_string()).collect()
+    } else {
+        settings.planning_signals.clone()
+    };
+
+    let is_planning = classify_planning(body, &signals);
+    let role = if is_planning {
+        "planning"
+    } else {
+        "executor"
+    };
+    let target = if is_planning {
+        &settings.thinking_model
+    } else {
+        &settings.coding_model
+    };
+
+    if target.is_empty() {
+        return Some(requested); // role unset → passthrough (backward compatible)
+    }
+    if target == &requested {
         return Some(requested);
     }
 
-    let chosen = {
-        let config = state.config.lock().await;
-        if model_supports_image(&config, &requested) {
-            None
-        } else if let Some(pinned) = config.vision_model.clone() {
-            Some(pinned)
-        } else {
-            auto_detect_vision_model(&config)
-        }
-    };
-
-    match chosen {
-        Some(vision) if vision != requested => {
-            info!(
-                requested = %requested,
-                rerouted = %vision,
-                "vision routing: image request rerouted to vision model"
-            );
-            Some(vision)
-        }
-        _ => Some(requested),
-    }
+    info!(
+        requested = %requested,
+        rerouted = %target,
+        role,
+        "role routing: request rerouted by skill classification"
+    );
+    Some(target.clone())
 }
 
 fn build_error_response(status: StatusCode, message: &str, error_type: &str) -> Response {
@@ -542,16 +631,16 @@ pub async fn put_config(
         .into_response()
 }
 
-pub async fn get_settings(State(state): State<Arc<AppState>>) -> axum::Json<Value> {
-    let path = state.config_path.with_file_name("settings.json");
-    let settings = std::fs::read_to_string(path)
+fn read_settings(config_path: &std::path::Path) -> WebUiSettings {
+    let path = config_path.with_file_name("settings.json");
+    std::fs::read_to_string(&path)
         .ok()
         .and_then(|s| serde_json::from_str::<WebUiSettings>(&s).ok())
-        .unwrap_or(WebUiSettings {
-            thinking_model: String::new(),
-            coding_model: String::new(),
-        });
-    axum::Json(json!(settings))
+        .unwrap_or_default()
+}
+
+pub async fn get_settings(State(state): State<Arc<AppState>>) -> axum::Json<Value> {
+    axum::Json(json!(read_settings(&state.config_path)))
 }
 
 pub async fn put_settings(
@@ -827,4 +916,57 @@ pub async fn delete_provider(
 pub async fn web_ui() -> impl IntoResponse {
     let html = include_str!("../../web/index.html");
     ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], html)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn signals() -> Vec<String> {
+        DEFAULT_PLANNING_SIGNALS.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn classifies_planning_from_skill_announcement() {
+        let body = json!({
+            "model": "anthropic/claude-sonnet-4",
+            "messages": [{"role": "assistant", "content": "I'm using the writing-plans skill to create the implementation plan."}]
+        });
+        assert!(classify_planning(&body, &signals()));
+    }
+
+    #[test]
+    fn classifies_planning_from_system_prompt() {
+        let body = json!({
+            "model": "anthropic/claude-sonnet-4",
+            "system": [{"type": "text", "text": "Loaded skill: brainstorming. Brainstorm the spec."}],
+            "messages": [{"role": "user", "content": "let's design this"}]
+        });
+        assert!(classify_planning(&body, &signals()));
+    }
+
+    #[test]
+    fn does_not_classify_plain_executor_request() {
+        let body = json!({
+            "model": "anthropic/claude-sonnet-4",
+            "messages": [{"role": "user", "content": "implement the auth middleware in src/auth.rs"}]
+        });
+        assert!(!classify_planning(&body, &signals()));
+    }
+
+    #[test]
+    fn subagent_execution_is_not_planning() {
+        let body = json!({
+            "model": "anthropic/claude-sonnet-4",
+            "messages": [{"role": "assistant", "content": "I'm using Subagent-Driven Development to execute this plan."}]
+        });
+        assert!(!classify_planning(&body, &signals()));
+    }
+
+    #[test]
+    fn empty_signals_never_classify() {
+        let body = json!({"messages": [{"role": "user", "content": "writing-plans everywhere"}]});
+        assert!(!classify_planning(&body, &[]));
+    }
 }
