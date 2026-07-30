@@ -114,6 +114,66 @@ async fn find_provider_for_model(state: &AppState, model: &str) -> Option<(Strin
     None
 }
 
+fn request_has_image(body: &Value) -> bool {
+    let messages = match body.get("messages").and_then(|m| m.as_array()) {
+        Some(m) => m,
+        None => return false,
+    };
+    for msg in messages {
+        let content = match msg.get("content") {
+            Some(c) => c,
+            None => continue,
+        };
+        if let Some(parts) = content.as_array() {
+            for part in parts {
+                if let Some(kind) = part.get("type").and_then(|v| v.as_str()) {
+                    if kind.contains("image") {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+async fn model_supports_image(state: &AppState, model: &str) -> bool {
+    let bare = model.rsplit_once('/').map(|(_, id)| id).unwrap_or(model);
+    let config = state.config.lock().await;
+    for provider_config in config.providers.values() {
+        for m in &provider_config.models {
+            if m.id == bare || m.name == bare || m.id == model || m.name == model {
+                return m.input.iter().any(|c| c.as_str() == "image");
+            }
+        }
+    }
+    false
+}
+
+async fn resolve_model(state: &AppState, body: &Value) -> Option<String> {
+    let requested = body.get("model")?.as_str()?.to_string();
+
+    let vision_model = {
+        let config = state.config.lock().await;
+        config.vision_model.clone()
+    };
+
+    if request_has_image(body) {
+        if let Some(vision) = vision_model {
+            if vision != requested && !model_supports_image(state, &requested).await {
+                info!(
+                    requested = %requested,
+                    rerouted = %vision,
+                    "vision routing: image request rerouted to vision model"
+                );
+                return Some(vision);
+            }
+        }
+    }
+
+    Some(requested)
+}
+
 fn build_error_response(status: StatusCode, message: &str, error_type: &str) -> Response {
     (
         status,
@@ -292,11 +352,9 @@ pub async fn openai_chat_completions(
     body: axum::Json<Value>,
 ) -> Response {
     let body = body.0;
-    let model = body
-        .get("model")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
-        .to_string();
+    let model = resolve_model(&state, &body)
+        .await
+        .unwrap_or_else(|| "unknown".to_string());
     let request_id = uuid::Uuid::new_v4().to_string();
     let start = std::time::Instant::now();
     info!(request_id, model, "received OpenAI request");
@@ -320,11 +378,9 @@ pub async fn anthropic_messages(
     body: axum::Json<Value>,
 ) -> Response {
     let body = body.0;
-    let model = body
-        .get("model")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
-        .to_string();
+    let model = resolve_model(&state, &body)
+        .await
+        .unwrap_or_else(|| "unknown".to_string());
     let request_id = uuid::Uuid::new_v4().to_string();
     let start = std::time::Instant::now();
     info!(request_id, model, "received Anthropic request");

@@ -3,6 +3,7 @@
     "port": 7331,
     "host": "127.0.0.1"
   },
+  "visionModel": "gpt-4o",
   "providers": {
     "anthropic": {
       "api": "anthropic-messages",

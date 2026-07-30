@@ -90,6 +90,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub gateway: GatewayConfig,
     pub providers: HashMap<String, ProviderConfig>,
+    #[serde(default, rename = "visionModel")]
+    pub vision_model: Option<String>,
 }
 
 impl AppConfig {
